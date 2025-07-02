@@ -2,12 +2,16 @@ import streamlit as st
 from pymongo import MongoClient
 import pandas as pd
 from datetime import datetime
+import pytz  # import pytz para fuso horário
 import io
 import base64
 from fpdf import FPDF
 from docx import Document
 import qrcode
 from PIL import Image
+
+# --- Fuso horário São Paulo ---
+tz_sao_paulo = pytz.timezone('America/Sao_Paulo')
 
 # --- MongoDB connection ---
 client = MongoClient("mongodb+srv://bibliotecaluizcarlos:FGVIlVhDcUDuQddG@cluster0.hth6xs5.mongodb.net/?retryWrites=true&w=majority")
@@ -54,7 +58,7 @@ def login():
             st.session_state["logado"] = True
             st.session_state["usuario"] = usuario
             st.session_state["usuario_admin"] = user.get("nivel", "user") == "admin"
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.sidebar.error("Usuário ou senha incorretos")
 
@@ -234,7 +238,8 @@ def registro_uso():
     indice = st.selectbox("Aluno", range(len(opcoes)), format_func=lambda x: opcoes[x])
     aluno_selecionado = alunos[indice]
 
-    horario = st.time_input("Horário", value=datetime.now().time())
+    # Default time já no fuso São Paulo
+    horario = st.time_input("Horário", value=datetime.now(tz_sao_paulo).time())
 
     mesas = list(db.mesas.find())
     opcoes_mesas = [m["numero"] for m in mesas] if mesas else []
@@ -246,8 +251,11 @@ def registro_uso():
 
     if st.button("💾 Registrar Uso"):
         if aluno_selecionado and horario and (mesa.strip() or equipamento.strip()):
+            # Pega a data/hora atual em UTC para salvar (padrão recomendado)
+            now_utc = datetime.utcnow().replace(tzinfo=pytz.UTC)
+
             db.registros.insert_one({
-                "data": datetime.now(),
+                "data": now_utc,
                 "aluno_cgm": aluno_selecionado["cgm"],
                 "aluno_nome": aluno_selecionado["nome"],
                 "horario": horario.strftime("%H:%M"),
@@ -265,7 +273,10 @@ def relatorios():
     registros = list(db.registros.find())
     if registros:
         df = pd.DataFrame(registros)
-        df["data"] = df["data"].apply(lambda x: x.strftime("%d/%m/%Y %H:%M") if isinstance(x, datetime) else x)
+        # Converte 'data' de UTC para horário de São Paulo para exibição
+        df["data"] = df["data"].apply(
+            lambda x: x.astimezone(tz_sao_paulo).strftime("%d/%m/%Y %H:%M") if hasattr(x, "astimezone") else x
+        )
         st.dataframe(df[["data", "aluno_nome", "horario", "mesa", "equipamento"]])
 
         col1, col2 = st.columns(2)
