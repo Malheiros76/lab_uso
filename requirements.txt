@@ -1,0 +1,7 @@
+streamlit
+pymongo
+pandas
+python-docx
+fpdf
+qrcode
+Pillow
