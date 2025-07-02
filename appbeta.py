@@ -9,6 +9,8 @@ from fpdf import FPDF
 from docx import Document
 import qrcode
 from PIL import Image
+from docx.shared import Inches
+
 
 # --- Fuso horário São Paulo ---
 tz_sao_paulo = pytz.timezone('America/Buenos_Aires')
@@ -274,10 +276,9 @@ def relatorios():
     if registros:
         df = pd.DataFrame(registros)
 
-        # Corrige a conversão de data
+        # Função para converter datas para fuso de São Paulo
         def converter_data(x):
             if isinstance(x, datetime):
-                # Se estiver naive (sem timezone), consideramos UTC
                 if x.tzinfo is None:
                     x = x.replace(tzinfo=pytz.UTC)
                 return x.astimezone(tz_sao_paulo).strftime("%d/%m/%Y %H:%M")
@@ -290,29 +291,50 @@ def relatorios():
 
         col1, col2 = st.columns(2)
 
+        # --- Exportação DOCX ---
         with col1:
             if st.button("📄 Exportar DOCX"):
                 doc = Document()
                 doc.add_heading('Relatório de Uso', 0)
+
+                # Inserir brasão no topo do DOCX
+                try:
+                    doc.add_picture("BRASÃO.png", width=Inches(1.5))
+                except Exception as e:
+                    st.warning(f"⚠️ Não foi possível adicionar o brasão ao DOCX: {e}")
+
+                doc.add_paragraph("")  # espaço
+
                 for _, row in df.iterrows():
                     doc.add_paragraph(
                         f"{row['data']} - {row['aluno_nome']} - {row['horario']} - Mesa {row['mesa']} - {row['equipamento']}"
                     )
+
                 buffer = io.BytesIO()
                 doc.save(buffer)
                 b64 = base64.b64encode(buffer.getvalue()).decode()
                 href = f'<a href="data:application/octet-stream;base64,{b64}" download="relatorio.docx">📥 Baixar DOCX</a>'
                 st.markdown(href, unsafe_allow_html=True)
 
+        # --- Exportação PDF ---
         with col2:
             if st.button("🧾 Exportar PDF"):
                 pdf = FPDF()
                 pdf.add_page()
+
+                try:
+                    pdf.image("BRASÃO.png", x=10, y=8, w=30)
+                except Exception as e:
+                    st.warning(f"⚠️ Não foi possível adicionar o brasão ao PDF: {e}")
+
                 pdf.set_font("Arial", size=12)
                 pdf.cell(200, 10, txt="Relatório de Uso", ln=True, align='C')
+                pdf.ln(20)
+
                 for _, row in df.iterrows():
                     texto = f"{row['data']} - {row['aluno_nome']} - {row['horario']} - Mesa {row['mesa']} - {row['equipamento']}"
                     pdf.cell(0, 10, txt=texto, ln=True)
+
                 pdf_bytes = bytes(pdf.output(dest="S"))
                 b64 = base64.b64encode(pdf_bytes).decode()
                 href = f'<a href="data:application/pdf;base64,{b64}" download="relatorio.pdf">📥 Baixar PDF</a>'
