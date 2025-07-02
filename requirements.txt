@@ -1,7 +1,9 @@
 streamlit
 pymongo
 pandas
-python-docx
 fpdf
-qrcode
-Pillow
+python-docx
+qrcode[pil]
+pillow
+numpy
+opencv-python-headless
