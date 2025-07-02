@@ -11,7 +11,7 @@ import qrcode
 from PIL import Image
 
 # --- Fuso horário São Paulo ---
-tz_sao_paulo = pytz.timezone('America/Lima')
+tz_sao_paulo = pytz.timezone('America/Brasilia')
 
 # --- MongoDB connection ---
 client = MongoClient("mongodb+srv://bibliotecaluizcarlos:FGVIlVhDcUDuQddG@cluster0.hth6xs5.mongodb.net/?retryWrites=true&w=majority")
