@@ -8,8 +8,6 @@ from fpdf import FPDF
 from docx import Document
 import qrcode
 from PIL import Image
-import numpy as np
-import cv2
 
 # --- MongoDB connection ---
 client = MongoClient("mongodb+srv://bibliotecaluizcarlos:FGVIlVhDcUDuQddG@cluster0.hth6xs5.mongodb.net/?retryWrites=true&w=majority")
@@ -44,29 +42,6 @@ def importar_alunos_txt(arquivo):
         st.success("Alunos importados com sucesso!")
     except Exception as e:
         st.error(f"Erro ao processar o arquivo: {e}")
-
-# --- Função de leitura de QR Code usando OpenCV nativo ---
-def ler_qrcode_stream():
-    cap = cv2.VideoCapture(0)
-    stframe = st.empty()
-    cancel = st.button("Cancelar leitura QR Code")
-    resultado = None
-    detector = cv2.QRCodeDetector()
-
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret or cancel:
-            break
-        data, bbox, _ = detector.detectAndDecode(frame)
-        if data:
-            resultado = data
-            cap.release()
-            stframe.empty()
-            return resultado
-        stframe.image(frame, channels="BGR")
-    cap.release()
-    stframe.empty()
-    return resultado
 
 # --- Login ---
 def login():
@@ -193,19 +168,11 @@ def imprimir_qrcodes():
     for item in dados:
         if titulo == "Mesa":
             numero = item.get("numero", None)
-            if numero is None:
-                faltando_info = True
-                texto = "Mesa ?"
-            else:
-                texto = f"Mesa {numero}"
+            texto = f"Mesa {numero}" if numero else "Mesa ?"
         else:
             nome = item.get("nome", None)
             numero = item.get("numero", None)
-            if nome is None or numero is None:
-                faltando_info = True
-                texto = f"{nome if nome else 'Equipamento'} #{numero if numero else '?'}"
-            else:
-                texto = f"{nome} #{numero}"
+            texto = f"{nome} #{numero}" if nome and numero else f"{nome if nome else 'Equipamento'} #{numero if numero else '?'}"
         img = generate_qrcode(texto)
         imagens.append((texto, img))
 
@@ -254,11 +221,10 @@ def imprimir_qrcodes():
     href = f'<a href="data:application/pdf;base64,{b64}" download="qrcodes_{titulo.lower()}.pdf">📥 Baixar QR Codes em PDF (A4)</a>'
     st.markdown(href, unsafe_allow_html=True)
 
-# --- Registro de Uso ---
+# --- Registro de Uso (selectbox ao invés de QR Code na webcam) ---
 def registro_uso():
-    st.subheader("📝 Registro de Uso com QR Code")
+    st.subheader("📝 Registro de Uso")
 
-    # SELECIONA ALUNO
     alunos = list(db.alunos.find())
     if not alunos:
         st.warning("Nenhum aluno cadastrado!")
@@ -268,27 +234,16 @@ def registro_uso():
     indice = st.selectbox("Aluno", range(len(opcoes)), format_func=lambda x: opcoes[x])
     aluno_selecionado = alunos[indice]
 
-    # HORÁRIO
     horario = st.time_input("Horário", value=datetime.now().time())
 
-    # CAMPOS DE MESA E EQUIPAMENTO
-    col1, col2 = st.columns(2)
+    mesas = list(db.mesas.find())
+    opcoes_mesas = [m["numero"] for m in mesas] if mesas else []
+    mesa = st.selectbox("Mesa", [""] + opcoes_mesas)
 
-    with col1:
-        mesa = st.text_input("Mesa", value=st.session_state.get("codigo_mesa", ""))
-        if st.button("📷 Ler QR Code da Mesa"):
-            codigo = ler_qrcode_stream()
-            if codigo:
-                st.session_state["codigo_mesa"] = codigo
+    equipamentos = list(db.equipamentos.find())
+    opcoes_equipamentos = [f"{e['nome']} #{e['numero']}" for e in equipamentos] if equipamentos else []
+    equipamento = st.selectbox("Equipamento", [""] + opcoes_equipamentos)
 
-    with col2:
-        equipamento = st.text_input("Equipamento", value=st.session_state.get("codigo_equipamento", ""))
-        if st.button("📷 Ler QR Code do Equipamento"):
-            codigo = ler_qrcode_stream()
-            if codigo:
-                st.session_state["codigo_equipamento"] = codigo
-
-    # BOTÃO SALVAR
     if st.button("💾 Registrar Uso"):
         if aluno_selecionado and horario and (mesa.strip() or equipamento.strip()):
             db.registros.insert_one({
@@ -300,13 +255,10 @@ def registro_uso():
                 "equipamento": equipamento.strip()
             })
             st.success("Uso registrado com sucesso!")
-            # limpa sessão
-            for k in ["codigo_mesa", "codigo_equipamento"]:
-                st.session_state.pop(k, None)
         else:
             st.warning("Preencha todos os campos obrigatórios (aluno, horário e mesa ou equipamento).")
 
-# --- Aba Relatórios ---
+# --- Relatórios ---
 def relatorios():
     st.subheader("📊 Relatórios de Uso")
 
