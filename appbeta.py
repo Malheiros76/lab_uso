@@ -273,10 +273,19 @@ def relatorios():
     registros = list(db.registros.find())
     if registros:
         df = pd.DataFrame(registros)
-        # Converte 'data' de UTC para horário de São Paulo para exibição
-        df["data"] = df["data"].apply(
-            lambda x: x.astimezone(tz_sao_paulo).strftime("%d/%m/%Y %H:%M") if hasattr(x, "astimezone") else x
-        )
+
+        # Corrige a conversão de data
+        def converter_data(x):
+            if isinstance(x, datetime):
+                # Se estiver naive (sem timezone), consideramos UTC
+                if x.tzinfo is None:
+                    x = x.replace(tzinfo=pytz.UTC)
+                return x.astimezone(tz_sao_paulo).strftime("%d/%m/%Y %H:%M")
+            return x
+
+        if "data" in df.columns:
+            df["data"] = df["data"].apply(converter_data)
+
         st.dataframe(df[["data", "aluno_nome", "horario", "mesa", "equipamento"]])
 
         col1, col2 = st.columns(2)
@@ -286,7 +295,9 @@ def relatorios():
                 doc = Document()
                 doc.add_heading('Relatório de Uso', 0)
                 for _, row in df.iterrows():
-                    doc.add_paragraph(f"{row['data']} - {row['aluno_nome']} - {row['horario']} - Mesa {row['mesa']} - {row['equipamento']}")
+                    doc.add_paragraph(
+                        f"{row['data']} - {row['aluno_nome']} - {row['horario']} - Mesa {row['mesa']} - {row['equipamento']}"
+                    )
                 buffer = io.BytesIO()
                 doc.save(buffer)
                 b64 = base64.b64encode(buffer.getvalue()).decode()
