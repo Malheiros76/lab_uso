@@ -58,7 +58,7 @@ def login():
             st.session_state["logado"] = True
             st.session_state["usuario"] = usuario
             st.session_state["usuario_admin"] = user.get("nivel", "user") == "admin"
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.sidebar.error("Usuário ou senha incorretos")
 
