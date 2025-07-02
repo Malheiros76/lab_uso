@@ -258,56 +258,53 @@ def imprimir_qrcodes():
 def registro_uso():
     st.subheader("📝 Registro de Uso com QR Code")
 
-    st.subheader("📝 Registro de Uso com QR Code")
+    # SELECIONA ALUNO
+    alunos = list(db.alunos.find())
+    if not alunos:
+        st.warning("Nenhum aluno cadastrado!")
+        return
 
-# SELECIONA ALUNO
-alunos = list(db.alunos.find())
-if not alunos:
-    st.warning("Nenhum aluno cadastrado!")
-    return
+    opcoes = [f"{a['nome']} ({a['turma']})" for a in alunos]
+    indice = st.selectbox("Aluno", range(len(opcoes)), format_func=lambda x: opcoes[x])
+    aluno_selecionado = alunos[indice]
 
-opcoes = [f"{a['nome']} ({a['turma']})" for a in alunos]
-indice = st.selectbox("Aluno", range(len(opcoes)), format_func=lambda x: opcoes[x])
-aluno_selecionado = alunos[indice]
+    # HORÁRIO
+    horario = st.time_input("Horário", value=datetime.now().time())
 
-# HORÁRIO
-horario = st.time_input("Horário", value=datetime.now().time())
+    # CAMPOS DE MESA E EQUIPAMENTO
+    col1, col2 = st.columns(2)
 
-# CAMPOS DE MESA E EQUIPAMENTO
-col1, col2 = st.columns(2)
+    with col1:
+        mesa = st.text_input("Mesa", value=st.session_state.get("codigo_mesa", ""))
+        if st.button("📷 Ler QR Code da Mesa"):
+            codigo = ler_qrcode_stream()
+            if codigo:
+                st.session_state["codigo_mesa"] = codigo
 
-with col1:
-    mesa = st.text_input("Mesa", value=st.session_state.get("codigo_mesa", ""))
-    if st.button("📷 Ler QR Code da Mesa"):
-        codigo = ler_qrcode_stream()
-        if codigo:
-            st.session_state["codigo_mesa"] = codigo
+    with col2:
+        equipamento = st.text_input("Equipamento", value=st.session_state.get("codigo_equipamento", ""))
+        if st.button("📷 Ler QR Code do Equipamento"):
+            codigo = ler_qrcode_stream()
+            if codigo:
+                st.session_state["codigo_equipamento"] = codigo
 
-with col2:
-    equipamento = st.text_input("Equipamento", value=st.session_state.get("codigo_equipamento", ""))
-    if st.button("📷 Ler QR Code do Equipamento"):
-        codigo = ler_qrcode_stream()
-        if codigo:
-            st.session_state["codigo_equipamento"] = codigo
-
-# BOTÃO SALVAR
-if st.button("💾 Registrar Uso"):
-    if aluno_selecionado and horario and (mesa.strip() or equipamento.strip()):
-        db.registros.insert_one({
-            "data": datetime.now(),
-            "aluno_cgm": aluno_selecionado["cgm"],
-            "aluno_nome": aluno_selecionado["nome"],
-            "horario": horario.strftime("%H:%M"),
-            "mesa": mesa.strip(),
-            "equipamento": equipamento.strip()
-        })
-        st.success("Uso registrado com sucesso!")
-        # limpa sessão
-        for k in ["codigo_mesa", "codigo_equipamento"]:
-            st.session_state.pop(k, None)
-    else:
-        st.warning("Preencha todos os campos obrigatórios (aluno, horário e mesa ou equipamento).")
-
+    # BOTÃO SALVAR
+    if st.button("💾 Registrar Uso"):
+        if aluno_selecionado and horario and (mesa.strip() or equipamento.strip()):
+            db.registros.insert_one({
+                "data": datetime.now(),
+                "aluno_cgm": aluno_selecionado["cgm"],
+                "aluno_nome": aluno_selecionado["nome"],
+                "horario": horario.strftime("%H:%M"),
+                "mesa": mesa.strip(),
+                "equipamento": equipamento.strip()
+            })
+            st.success("Uso registrado com sucesso!")
+            # limpa sessão
+            for k in ["codigo_mesa", "codigo_equipamento"]:
+                st.session_state.pop(k, None)
+        else:
+            st.warning("Preencha todos os campos obrigatórios (aluno, horário e mesa ou equipamento).")
 
 # --- Aba Relatórios ---
 def relatorios():
