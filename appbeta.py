@@ -318,7 +318,7 @@ def relatorios():
 
         # --- Exportação PDF ---
        with col2:
-    if st.button("🧾 Exportar PDF"):
+        if st.button("🧾 Exportar PDF"):
         pdf = FPDF()
         pdf.add_page()
 
